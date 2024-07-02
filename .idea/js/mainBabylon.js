@@ -14,19 +14,19 @@ const createScene = async function () {
     camera.lowerRadiusLimit = 5;
 
     let array = [];
-    let boxContainer = [];
-    let shelfContainer = [];
+    let elementContainers = [];
+    let shelfContainers = [];
 
     const peachColor = "#FFDAB9"; // Define the Peach color
 
-    const createBoxWithColor = (index) => {
+    const createBoxWithColor = (index, size, color) => {
         // Create the box
-        const box = BABYLON.MeshBuilder.CreateBox(`box${index}`, { size: 2 }, scene);
+        const box = BABYLON.MeshBuilder.CreateBox(`box${index}`, { size: size }, scene);
         box.position = new BABYLON.Vector3(index * 2, 0, 0);
 
         // Create the material
         const boxMaterial = new BABYLON.StandardMaterial(`boxMaterial${index}`, scene);
-        boxMaterial.diffuseColor = BABYLON.Color3.FromHexString(peachColor);
+        boxMaterial.diffuseColor = BABYLON.Color3.FromHexString(color);
         boxMaterial.alpha = 1.0; // Ensure the material is fully opaque
         boxMaterial.backFaceCulling = false; // Make sure the box is visible from both sides
         box.material = boxMaterial;
@@ -35,36 +35,50 @@ const createScene = async function () {
     };
 
     const updateShelf = () => {
-        shelfContainer.forEach(box => box.dispose());
-        shelfContainer = [];
+        // Remove old shelf boxes
+        shelfContainers.forEach(box => box.dispose());
+        shelfContainers = [];
 
+        // Determine the capacity
         const capacity = Math.max(array.length, 2); // Ensure at least 2 capacity
 
         for (let i = 0; i < capacity; i++) {
-            const box = createBoxWithColor(i);
+            const box = createBoxWithColor(i, 1, peachColor); // Same size for shelf boxes
             box.position.y = -2; // Position shelf boxes slightly lower
-            shelfContainer.push(box);
+            shelfContainers.push(box);
         }
     };
 
     const updateVisualization = () => {
-        boxContainer.forEach(box => box.dispose());
-        boxContainer = [];
+        // Remove old element boxes
+        elementContainers.forEach(box => box.dispose());
+        elementContainers = [];
 
         // Update shelf to reflect current capacity
         updateShelf();
+
+        // Create new boxes for each array element
+        array.forEach((element, index) => {
+            const box = createBoxWithColor(index, 1, peachColor); // Same size as shelf boxes
+            box.position.y = 0; // Position element boxes at the same level as shelf
+            elementContainers.push(box);
+        });
     };
 
     const handleAddElement = (element) => {
         array.push(element);
         updateVisualization();
-        createThoughtBubble(`Added element`, new BABYLON.Vector3(0, 3, 0));
+        createThoughtBubble(`Added element: ${element}`, new BABYLON.Vector3(0, 3, 0));
     };
 
     const handleRemoveElement = () => {
-        array.pop();
-        updateVisualization();
-        createThoughtBubble(`Removed last element`, new BABYLON.Vector3(0, 3, 0));
+        if (array.length > 0) {
+            const removedElement = array.pop();
+            updateVisualization();
+            createThoughtBubble(`Removed element: ${removedElement}`, new BABYLON.Vector3(0, 3, 0));
+        } else {
+            createThoughtBubble("Array is empty. Cannot remove elements.", new BABYLON.Vector3(0, 3, 0));
+        }
     };
 
     const handleGrowArray = () => {
@@ -81,16 +95,16 @@ const createScene = async function () {
     };
 
     const createThoughtBubble = (message, position) => {
-        const thoughtBubble = BABYLON.MeshBuilder.CreatePlane("thoughtBubble", { width: 3, height: 1 }, scene);
+        const thoughtBubble = BABYLON.MeshBuilder.CreatePlane("thoughtBubble", { width: 5, height: 1.5 }, scene);
         thoughtBubble.position = position;
         thoughtBubble.rotation = new BABYLON.Vector3(Math.PI, 0, 0);
         const thoughtTexture = BABYLON.GUI.AdvancedDynamicTexture.CreateForMesh(thoughtBubble);
         const thoughtText = new BABYLON.GUI.TextBlock();
         thoughtText.text = message;
         thoughtText.color = "white";
-        thoughtText.fontSize = 24;
+        thoughtText.fontSize = 54;
         thoughtTexture.addControl(thoughtText);
-        setTimeout(() => thoughtBubble.dispose(), 2000); // Remove after 2 seconds
+        setTimeout(() => thoughtBubble.dispose(), 3000); // Remove after 3 seconds
     };
 
     // GUI for buttons
@@ -136,6 +150,52 @@ const createScene = async function () {
         handleGrowArray();
     });
     panel.addControl(growButton);
+
+    // Code visualization
+    const codePlane = BABYLON.Mesh.CreatePlane("codePlane", 8, scene);
+    codePlane.position = new BABYLON.Vector3(0, 2, -3);
+    codePlane.rotation = new BABYLON.Vector3(0, Math.PI, 0);
+    const codeTexture = BABYLON.GUI.AdvancedDynamicTexture.CreateForMesh(codePlane);
+    const codeTextBlock = new BABYLON.GUI.TextBlock();
+    codeTextBlock.text = "";
+    codeTextBlock.color = "white";
+    codeTextBlock.fontSize = 564;
+    codeTextBlock.textWrapping = true;
+    codeTexture.addControl(codeTextBlock);
+
+    const updateCodeVisualization = (action) => {
+        const codeText = `
+class DynamicArray:
+    def __init__(self):
+        self.size = 0
+        self.capacity = 2
+        self.array = [None] * self.capacity
+
+    def add(self, element):
+        if self.size == self.capacity:
+            self._grow()
+        self.array[self.size] = element
+        self.size += 1
+
+    def _grow(self):
+        new_capacity = self.capacity * 2
+        new_array = [None] * new_capacity
+        for i in range(self.size):
+            new_array[i] = self.array[i]
+        self.array = new_array
+        self.capacity = new_capacity
+        `;
+
+        if (action === 'add') {
+            codeText += `\n\n# Action: Adding an element\nself.add(element)`;
+        } else if (action === 'remove') {
+            codeText += `\n\n# Action: Removing an element\nself.remove()`;
+        } else if (action === 'grow') {
+            codeText += `\n\n# Action: Growing the array\nself._grow()`;
+        }
+
+        codeTextBlock.text = codeText;
+    };
 
     // Adding XR support
     const xrHelper = await scene.createDefaultXRExperienceAsync({
