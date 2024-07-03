@@ -1,8 +1,17 @@
 const canvas = document.getElementById("renderCanvas");
 const engine = new BABYLON.Engine(canvas, true);
 
+let scene;
+let array = [];
+let currentCage = null;
+let elementContainers = [];
+let cageCapacity = 2; // Initial capacity of the cage
+const peachColor = "#FFDAB9"; // Define Peach color
+let codeTextBlock;
+
+// Setting up a basic scene
 const createScene = async function () {
-    const scene = new BABYLON.Scene(engine);
+    scene = new BABYLON.Scene(engine);
 
     // Create a basic light
     const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(1, 1, 0), scene);
@@ -13,162 +22,101 @@ const createScene = async function () {
     camera.attachControl(canvas, true);
     camera.lowerRadiusLimit = 5;
 
-    let array = [];
-    let elementContainers = [];
-    let shelfContainers = [];
+    return scene;
+};
 
-    const peachColor = "#FFDAB9"; // Define the Peach color
+const createBox = (index, size, color) => {
+    const box = BABYLON.MeshBuilder.CreateBox(`box${index}`, { size: size }, scene);
+    box.position = new BABYLON.Vector3(index * 2, 0, 0);
+    const boxMaterial = new BABYLON.StandardMaterial(`boxMaterial${index}`, scene);
+    boxMaterial.diffuseColor = BABYLON.Color3.FromHexString(color);
+    box.material = boxMaterial;
 
-    const createBoxWithColor = (index, size, color) => {
-        // Create the box
-        const box = BABYLON.MeshBuilder.CreateBox(`box${index}`, { size: size }, scene);
+    //Calculating the position to centre boxes within the cage
+    const boxSize = size;
+    const cageSize = cageCapacity * 2;
+    const boxSpacing = boxSize * 1.5; // Adjust spacing as needed
+    const totalWidth = (array.length - 1) * boxSpacing + boxSize; // Total width of boxes
+
+    // Center boxes in the cage
+    box.position = new BABYLON.Vector3(-totalWidth / 2 + (index * boxSpacing) + boxSize / 2, 0, 0);
+
+    return box;
+};
+
+const createCage = (capacity) => {
+    if (currentCage) {
+        currentCage.dispose(); // Remove old cage
+    }
+
+    currentCage = new BABYLON.Mesh("cage", scene);
+    const cageSize = capacity * 2; // Adjust size based on capacity
+
+    // Create cage walls
+    const frontWall = BABYLON.MeshBuilder.CreateBox("frontWall", { size: cageSize, height: 1, depth: 0.1 }, scene);
+    const backWall = BABYLON.MeshBuilder.CreateBox("backWall", { size: cageSize, height: 1, depth: 0.1 }, scene);
+    const leftWall = BABYLON.MeshBuilder.CreateBox("leftWall", { size: 0.1, height: 1, depth: cageSize }, scene);
+    const rightWall = BABYLON.MeshBuilder.CreateBox("rightWall", { size: 0.1, height: 1, depth: cageSize }, scene);
+
+    frontWall.position = new BABYLON.Vector3(0, 0, -cageSize / 2);
+    backWall.position = new BABYLON.Vector3(0, 0, cageSize / 2);
+    leftWall.position = new BABYLON.Vector3(-cageSize / 2, 0, 0);
+    rightWall.position = new BABYLON.Vector3(cageSize / 2, 0, 0);
+
+    currentCage.addChild(frontWall);
+    currentCage.addChild(backWall);
+    currentCage.addChild(leftWall);
+    currentCage.addChild(rightWall);
+};
+
+const updateCage = () => {
+    if (array.length > cageCapacity) {
+        garbageCollectCage();
+    } else {
+        createCage(cageCapacity);
+        updateVisualization();
+    }
+};
+
+const garbageCollectCage = () => {
+    // Remove the current cage and create a larger one
+    currentCage.dispose();
+    cageCapacity *= 2; // Double the capacity
+    createCage(cageCapacity);
+    updateVisualization();
+};
+
+const updateVisualization = () => {
+    elementContainers.forEach(box => box.dispose()); // Clear old boxes
+    elementContainers = [];
+
+    array.forEach((element, index) => {
+        const box = createBox(index, 1, peachColor);
         box.position = new BABYLON.Vector3(index * 2, 0, 0);
-
-        // Create the material
-        const boxMaterial = new BABYLON.StandardMaterial(`boxMaterial${index}`, scene);
-        boxMaterial.diffuseColor = BABYLON.Color3.FromHexString(color);
-        boxMaterial.alpha = 1.0; // Ensure the material is fully opaque
-        boxMaterial.backFaceCulling = false; // Make sure the box is visible from both sides
-        box.material = boxMaterial;
-
-        return box;
-    };
-
-    const updateShelf = () => {
-        // Remove old shelf boxes
-        shelfContainers.forEach(box => box.dispose());
-        shelfContainers = [];
-
-        // Determine the capacity
-        const capacity = Math.max(array.length, 2); // Ensure at least 2 capacity
-
-        for (let i = 0; i < capacity; i++) {
-            const box = createBoxWithColor(i, 1, peachColor); // Same size for shelf boxes
-            box.position.y = -2; // Position shelf boxes slightly lower
-            shelfContainers.push(box);
-        }
-    };
-
-    const updateVisualization = () => {
-        // Remove old element boxes
-        elementContainers.forEach(box => box.dispose());
-        elementContainers = [];
-
-        // Update shelf to reflect current capacity
-        updateShelf();
-
-        // Create new boxes for each array element
-        array.forEach((element, index) => {
-            const box = createBoxWithColor(index, 1, peachColor); // Same size as shelf boxes
-            box.position.y = 0; // Position element boxes at the same level as shelf
-            elementContainers.push(box);
-        });
-    };
-
-    const handleAddElement = (element) => {
-        array.push(element);
-        updateVisualization();
-        createThoughtBubble(`Added element: ${element}`, new BABYLON.Vector3(0, 3, 0));
-    };
-
-    const handleRemoveElement = () => {
-        if (array.length > 0) {
-            const removedElement = array.pop();
-            updateVisualization();
-            createThoughtBubble(`Removed element: ${removedElement}`, new BABYLON.Vector3(0, 3, 0));
-        } else {
-            createThoughtBubble("Array is empty. Cannot remove elements.", new BABYLON.Vector3(0, 3, 0));
-        }
-    };
-
-    const handleGrowArray = () => {
-        const newCapacity = Math.max(array.length * 2, 2); // Double the capacity
-        const newArray = new Array(newCapacity);
-
-        for (let i = 0; i < array.length; i++) {
-            newArray[i] = array[i];
-        }
-
-        array = newArray;
-        updateVisualization();
-        createThoughtBubble(`Array grown to capacity ${newCapacity}`, new BABYLON.Vector3(0, 3, 0));
-    };
-
-    const createThoughtBubble = (message, position) => {
-        const thoughtBubble = BABYLON.MeshBuilder.CreatePlane("thoughtBubble", { width: 5, height: 1.5 }, scene);
-        thoughtBubble.position = position;
-        thoughtBubble.rotation = new BABYLON.Vector3(Math.PI, 0, 0);
-        const thoughtTexture = BABYLON.GUI.AdvancedDynamicTexture.CreateForMesh(thoughtBubble);
-        const thoughtText = new BABYLON.GUI.TextBlock();
-        thoughtText.text = message;
-        thoughtText.color = "white";
-        thoughtText.fontSize = 54;
-        thoughtTexture.addControl(thoughtText);
-        setTimeout(() => thoughtBubble.dispose(), 3000); // Remove after 3 seconds
-    };
-
-    // GUI for buttons
-    const buttonPlane = BABYLON.Mesh.CreatePlane("buttonPlane", 4, scene);
-    buttonPlane.position = new BABYLON.Vector3(0, 4, 0);
-    buttonPlane.rotation = new BABYLON.Vector3(Math.PI, 0, 0);
-    const buttonTexture = BABYLON.GUI.AdvancedDynamicTexture.CreateForMesh(buttonPlane);
-    const panel = new BABYLON.GUI.StackPanel();
-    buttonTexture.addControl(panel);
-
-    // Add element button
-    const addButton = BABYLON.GUI.Button.CreateSimpleButton("addButton", "Add Element");
-    addButton.width = "200px";
-    addButton.height = "50px";
-    addButton.color = "white";
-    addButton.background = "green";
-    addButton.onPointerUpObservable.add(() => {
-        const element = prompt("Enter a number to add:");
-        if (element !== null && !isNaN(element)) {
-            handleAddElement(parseInt(element));
-        }
+        elementContainers.push(box);
     });
-    panel.addControl(addButton);
+};
 
-    // Remove element button
-    const removeButton = BABYLON.GUI.Button.CreateSimpleButton("removeButton", "Remove Element");
-    removeButton.width = "200px";
-    removeButton.height = "50px";
-    removeButton.color = "white";
-    removeButton.background = "red";
-    removeButton.onPointerUpObservable.add(() => {
-        handleRemoveElement();
-    });
-    panel.addControl(removeButton);
-
-    // Grow array button
-    const growButton = BABYLON.GUI.Button.CreateSimpleButton("growButton", "Grow Array");
-    growButton.width = "200px";
-    growButton.height = "50px";
-    growButton.color = "white";
-    growButton.background = "blue";
-    growButton.onPointerUpObservable.add(() => {
-        handleGrowArray();
-    });
-    panel.addControl(growButton);
-
-    // Code visualization
+const createCodePanel = () => {
     const codePlane = BABYLON.Mesh.CreatePlane("codePlane", 8, scene);
     codePlane.position = new BABYLON.Vector3(0, 2, -3);
     codePlane.rotation = new BABYLON.Vector3(0, Math.PI, 0);
+
     const codeTexture = BABYLON.GUI.AdvancedDynamicTexture.CreateForMesh(codePlane);
-    const codeTextBlock = new BABYLON.GUI.TextBlock();
+    codeTextBlock = new BABYLON.GUI.TextBlock();
     codeTextBlock.text = "";
     codeTextBlock.color = "white";
-    codeTextBlock.fontSize = 564;
+    codeTextBlock.fontSize = 20;
     codeTextBlock.textWrapping = true;
     codeTexture.addControl(codeTextBlock);
+};
 
-    const updateCodeVisualization = (action) => {
-        const codeText = `
+const updateCodeVisualization = (action) => {
+    let codeText = `
 class DynamicArray:
     def __init__(self):
         self.size = 0
-        self.capacity = 2
+        self.capacity = ${cageCapacity}
         self.array = [None] * self.capacity
 
     def add(self, element):
@@ -184,28 +132,63 @@ class DynamicArray:
             new_array[i] = self.array[i]
         self.array = new_array
         self.capacity = new_capacity
-        `;
+    `;
 
-        if (action === 'add') {
-            codeText += `\n\n# Action: Adding an element\nself.add(element)`;
-        } else if (action === 'remove') {
-            codeText += `\n\n# Action: Removing an element\nself.remove()`;
-        } else if (action === 'grow') {
-            codeText += `\n\n# Action: Growing the array\nself._grow()`;
-        }
+    if (action === 'add') {
+        codeText += `\n\n# Action: Adding an element\nself.add(element)`;
+    } else if (action === 'remove') {
+        codeText += `\n\n# Action: Removing an element\nself.remove()`;
+    }
 
-        codeTextBlock.text = codeText;
-    };
-
-    // Adding XR support
-    const xrHelper = await scene.createDefaultXRExperienceAsync({
-        uiOptions: { sessionMode: 'immersive-ar' },
-    });
-
-    return scene;
+    codeTextBlock.text = codeText;
 };
 
-createScene().then(scene => {
+const createButtons = () => {
+    const buttonPlane = BABYLON.Mesh.CreatePlane("buttonPlane", 4, scene);
+    buttonPlane.position = new BABYLON.Vector3(4, 4, 0); // Move buttons to the right
+    buttonPlane.rotation = new BABYLON.Vector3(Math.PI, 0, 0);
+
+    const buttonTexture = BABYLON.GUI.AdvancedDynamicTexture.CreateForMesh(buttonPlane);
+    const panel = new BABYLON.GUI.StackPanel();
+    buttonTexture.addControl(panel);
+
+    const addButton = BABYLON.GUI.Button.CreateSimpleButton("addButton", "Add Element");
+    addButton.width = "200px";
+    addButton.height = "50px";
+    addButton.color = "white";
+    addButton.background = "green";
+    addButton.onPointerUpObservable.add(() => {
+        const element = prompt("Enter a number to add:");
+        if (element !== null && !isNaN(element)) {
+            array.push(parseInt(element));
+            updateCage();
+            updateCodeVisualization('add');
+        }
+    });
+    panel.addControl(addButton);
+
+    const removeButton = BABYLON.GUI.Button.CreateSimpleButton("removeButton", "Remove Element");
+    removeButton.width = "200px";
+    removeButton.height = "50px";
+    removeButton.color = "white";
+    removeButton.background = "red";
+    removeButton.onPointerUpObservable.add(() => {
+        if (array.length > 0) {
+            array.pop();
+            updateCage();
+            updateCodeVisualization('remove');
+        } else {
+            alert("Array is empty. Cannot remove elements.");
+        }
+    });
+    panel.addControl(removeButton);
+};
+
+// Initialize the scene and create UI elements
+createScene().then(() => {
+    createCage(cageCapacity);
+    createButtons();
+    createCodePanel();
     engine.runRenderLoop(() => {
         scene.render();
     });
