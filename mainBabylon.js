@@ -124,30 +124,6 @@
         codeTexture.background = "black";  // Solid dark background
     };
 
-    // Pre-populate with a few elements to demonstrate the concept
-    array.push(1);
-    array.push(2);
-    updateCage();
-    updateCodeVisualization('add');
-
-    const advancedTexture = BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI("UI");
-
-    const instructions = new BABYLON.GUI.TextBlock();
-    instructions.text = "Drag to orbit • Scroll to zoom • Click 'Add Element' to grow the array";
-    instructions.color = "white";
-    instructions.fontSize = 18;
-    instructions.top = "20px";
-    instructions.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_TOP;
-    advancedTexture.addControl(instructions);
-    
-    const title = new BABYLON.GUI.TextBlock();
-    title.text = "Dynamic Array Visualization";
-    title.color = "#FFDAB9";
-    title.fontSize = 32;
-    title.top = "-20px";
-    title.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_BOTTOM;
-    advancedTexture.addControl(title);
-
     const updateCodeVisualization = (action) => {
         let codeText = `
     class DynamicArray:
@@ -223,15 +199,39 @@
         panel.addControl(removeButton);
     };
 
-    // Initialize the scene and create UI elements
-    createScene().then(() => {
+        createScene().then(() => {
         createCage(cageCapacity);
         createButtons();
         createCodePanel();
+        
+        // Add UI overlay (title + instructions)
+        const advancedTexture = BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI("UI");
+        
+        const title = new BABYLON.GUI.TextBlock();
+        title.text = "Dynamic Array Visualization";
+        title.color = "#FFDAB9";
+        title.fontSize = 32;
+        title.top = "20px";
+        title.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_TOP;
+        advancedTexture.addControl(title);
+        
+        const instructions = new BABYLON.GUI.TextBlock();
+        instructions.text = "Drag to orbit  •  Scroll to zoom  •  Click 'Add Element' to grow the array";
+        instructions.color = "white";
+        instructions.fontSize = 18;
+        instructions.top = "-20px";
+        instructions.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_BOTTOM;
+        advancedTexture.addControl(instructions);
+        
+        // Pre-populate with a few elements to demonstrate the concept
+        array.push(1);
+        array.push(2);
+        updateCage();
+        updateCodeVisualization('add');
+        
         engine.runRenderLoop(() => {
             scene.render();
         });
-
         window.addEventListener("resize", () => {
             engine.resize();
         });
