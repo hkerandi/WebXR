@@ -121,7 +121,32 @@
         codeTextBlock.fontSize = 20;
         codeTextBlock.textWrapping = true;
         codeTexture.addControl(codeTextBlock);
+        codeTexture.background = "black";  // Solid dark background
     };
+
+    // Pre-populate with a few elements to demonstrate the concept
+    array.push(1);
+    array.push(2);
+    updateCage();
+    updateCodeVisualization('add');
+
+    const advancedTexture = BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI("UI");
+
+    const instructions = new BABYLON.GUI.TextBlock();
+    instructions.text = "Drag to orbit • Scroll to zoom • Click 'Add Element' to grow the array";
+    instructions.color = "white";
+    instructions.fontSize = 18;
+    instructions.top = "20px";
+    instructions.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_TOP;
+    advancedTexture.addControl(instructions);
+    
+    const title = new BABYLON.GUI.TextBlock();
+    title.text = "Dynamic Array Visualization";
+    title.color = "#FFDAB9";
+    title.fontSize = 32;
+    title.top = "-20px";
+    title.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_BOTTOM;
+    advancedTexture.addControl(title);
 
     const updateCodeVisualization = (action) => {
         let codeText = `
@@ -158,7 +183,7 @@
     const createButtons = () => {
         const buttonPlane = BABYLON.Mesh.CreatePlane("buttonPlane", 4, scene);
         buttonPlane.position = new BABYLON.Vector3(4, 4, 0); // Move buttons to the right
-        buttonPlane.rotation = new BABYLON.Vector3(Math.PI, 0, 0);
+        buttonPlane.rotation = new BABYLON.Vector3(0, Math.PI, 0);
 
         const buttonTexture = BABYLON.GUI.AdvancedDynamicTexture.CreateForMesh(buttonPlane);
         const panel = new BABYLON.GUI.StackPanel();
